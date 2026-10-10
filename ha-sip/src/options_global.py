@@ -7,7 +7,6 @@ from options import ALL_BOOL_VALUES, is_true
 
 class GlobalOptions:
     stun_server: Optional[str] = None
-    media_public_address: Optional[str] = None
     enable_udp: bool = True
     enable_tcp: bool = True
     enable_tls: bool = False
@@ -24,7 +23,6 @@ class GlobalOptions:
     def __init__(
         self,
         stun_server: Optional[str],
-        media_public_address: Optional[str],
         enable_udp: bool,
         enable_tcp: bool,
         enable_tls: bool,
@@ -39,7 +37,6 @@ class GlobalOptions:
         mqtt_state_topic: str,
     ):
         self.stun_server = stun_server
-        self.media_public_address = media_public_address
         self.enable_udp = enable_udp
         self.enable_tcp = enable_tcp
         self.enable_tls = enable_tls
@@ -53,7 +50,6 @@ class GlobalOptions:
         self.mqtt_topic = mqtt_topic
         self.mqtt_state_topic = mqtt_state_topic
         log(None, f'STUN Server: {self.stun_server}')
-        log(None, f'Media public address: {self.media_public_address}')
         log(None, f'UDP Enabled: {self.enable_udp}')
         log(None, f'TCP Enabled: {self.enable_tcp}')
         log(None, f'TLS Enabled: {self.enable_tls}')
@@ -73,11 +69,6 @@ def create_parser() -> argparse.ArgumentParser:
         '--stun-server',
         default=None,
         help='STUN server to use for NAT traversal (default: None)'
-    )
-    parser.add_argument(
-        '--media-public-address',
-        default=None,
-        help='Public IP advertised in the SDP of accounts that use a proxy (TIM): an IPv4 address, or "auto" to detect it at start-up (default: disabled)'
     )
     parser.add_argument(
         '--udp',
@@ -153,7 +144,6 @@ def parse_global_options(raw: Optional[str]) -> GlobalOptions:
     args = parser.parse_args(raw_str.split())
     return GlobalOptions(
         stun_server=args.stun_server,
-        media_public_address=args.media_public_address,
         enable_udp=is_true(args.udp),
         enable_tcp=is_true(args.tcp),
         enable_tls=is_true(args.tls),
