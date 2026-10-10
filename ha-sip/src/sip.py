@@ -15,6 +15,7 @@ class MyEndpointConfig(object):
 def create_endpoint(ep_config: MyEndpointConfig) -> pj.Endpoint:
     ep_cfg = pj.EpConfig()
     ep_cfg.logConfig.level = ep_config.log_level
+    ep_cfg.medConfig.noVad = True
     ep_cfg.uaConfig.threadCnt = 0
     ep_cfg.uaConfig.mainThreadOnly = True
     if ep_config.name_server:
