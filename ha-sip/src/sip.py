@@ -30,10 +30,6 @@ def create_endpoint(ep_config: MyEndpointConfig) -> pj.Endpoint:
     end_point.libInit(ep_cfg)
     codecs = end_point.codecEnum2()
     log(None, f"Supported audio codecs: {', '.join(c.codecId for c in codecs)}")
-    for _c in codecs:
-        # TIM uses PCMA, HA VoIP works best with PCMU: disable opus/wideband to avoid mismatches
-        if _c.codecId.lower().startswith(('opus', 'g722', 'speex', 'ilbc', 'gsm')):
-            end_point.codecSetPriority(_c.codecId, 0)
     end_point.audDevManager().setNullDev()
     if ep_config.global_options.enable_udp:
         log(None, f"UDP transport enabled on port {ep_config.port}")
