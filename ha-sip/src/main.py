@@ -4,7 +4,6 @@ import faulthandler
 import os
 import socket
 import sys
-import time
 from typing import Optional, Any
 from urllib.parse import urlparse
 
@@ -81,9 +80,6 @@ def get_cache_dir(raw_cache_dir: str) -> Optional[str]:
         return None
     log(None, f"Found cache directory '{raw_cache_dir}'")
     return raw_cache_dir
-
-
-REG_REFRESH_SECONDS = 120
 
 
 def main():
@@ -196,19 +192,9 @@ def main():
     sensor_event_handler = SensorEventHandler(sensor_updater)
     event_sender.register_sender(sensor_event_handler.handle_event)
     sensor_updater.initialize_sensors()
-    last_reg_refresh = time.monotonic()
     while True:
         if mqtt_client:
             mqtt_client.handle()
-        if time.monotonic() - last_reg_refresh >= REG_REFRESH_SECONDS:
-            last_reg_refresh = time.monotonic()
-            for sip_account in list(sip_accounts.values()):
-                if 'telecomitalia' in str(sip_account.config.registrar_uri):
-                    try:
-                        sip_account.setRegistration(True)
-                        log(sip_account.config.index, 'Keep-alive: re-REGISTER sent to keep NAT/provider session alive')
-                    except Exception as e:
-                        log(sip_account.config.index, f'Keep-alive re-REGISTER failed: {e}')
         end_point.libHandleEvents(10)
         handle_command_list(command_client, command_handler)
         for c in list(call_state.current_call_dict.values()):

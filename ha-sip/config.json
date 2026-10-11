@@ -1,6 +1,6 @@
 {
     "name": "ha-sip (fix TIM)",
-    "version": "5.8.0",
+    "version": "5.7.3",
     "slug": "ha-sip",
     "url": "https://github.com/arnonym/ha-plugins",
     "description": "Home-Assistant SIP Gateway",
