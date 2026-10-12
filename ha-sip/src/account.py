@@ -21,6 +21,23 @@ from options_sip import SipOptions
 OnRegStateCallback = Callable[[int, int, str], None]
 
 
+def resolve_media_public_address(value):
+    if not value:
+        return None
+    if value.lower() != 'auto':
+        return value
+    import urllib.request
+    for url in ('https://api.ipify.org', 'https://ifconfig.me/ip', 'https://icanhazip.com'):
+        try:
+            with urllib.request.urlopen(url, timeout=5) as response:
+                ip = response.read().decode().strip()
+            if ip.count('.') == 3:
+                return ip
+        except Exception as e:
+            log(None, f'Could not detect public IP via {url}: {e}')
+    return None
+
+
 class MyAccountConfig(object):
     def __init__(
         self,
@@ -94,6 +111,10 @@ class Account(pj.Account):
             account_config.natConfig.turnPassword = self.config.options.turn_server.password
         if self.config.options.proxy:
             account_config.sipConfig.proxies.append(self.config.options.proxy)
+            public_address = resolve_media_public_address(self.config.global_options.media_public_address)
+            if public_address:
+                log(self.config.index, f'Advertising media public address {public_address}')
+                account_config.mediaConfig.transportConfig.publicAddress = public_address
         return pj.Account.create(self, account_config, self.make_default)
 
     def onRegState(self, prm) -> None:
