@@ -1,10 +1,6 @@
 {
     "name": "ha-sip (fix TIM)",
-<<<<<<< HEAD
     "version": "5.9.0",
-=======
-    "version": "5.7.0",
->>>>>>> parent of 8f1e740 (Revert "Add --media-public-address global option (IP or auto) to advertise public IP in SDP for proxy accounts")
     "slug": "ha-sip",
     "url": "https://github.com/arnonym/ha-plugins",
     "description": "Home-Assistant SIP Gateway",
