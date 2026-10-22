@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import time
+
 import re
 from typing import Callable, Dict, List, Optional
 
@@ -87,6 +89,7 @@ class Account(pj.Account):
         self.ha_config = ha_config
         self.make_default = make_default
         self.on_reg_state_callback = on_reg_state_callback
+        self._last_reg_code: Optional[int] = None
 
     def init(self) -> None:
         account_config = pj.AccountConfig()
@@ -117,8 +120,25 @@ class Account(pj.Account):
                 account_config.mediaConfig.transportConfig.publicAddress = public_address
         return pj.Account.create(self, account_config, self.make_default)
 
+    def refresh_registration(self, timeout: float = 20.0) -> bool:
+        # TIM answers outgoing INVITEs only shortly after a fresh REGISTER: renew the
+        # registration right before dialing and wait for the final response.
+        self._last_reg_code = None
+        try:
+            self.setRegistration(True)
+        except Exception as e:
+            log(self.config.index, f'Could not refresh registration before dialing: {e}')
+            return False
+        deadline = time.time() + timeout
+        while time.time() < deadline and self._last_reg_code is None:
+            self.end_point.libHandleEvents(50)
+        ok = self._last_reg_code == 200
+        log(self.config.index, f'Registration refresh before dialing: {self._last_reg_code} (ok={ok})')
+        return ok
+
     def onRegState(self, prm) -> None:
         log(self.config.index, f'OnRegState: {prm.code} {prm.reason}')
+        self._last_reg_code = prm.code if prm.code >= 200 else self._last_reg_code
         if self.on_reg_state_callback:
             self.on_reg_state_callback(self.config.index, prm.code, prm.reason)
 
