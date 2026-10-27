@@ -61,6 +61,7 @@ class Call(pj.Call):
         pj.Call.__init__(self, sip_account, call_id)
         self.player: Optional[player.Player] = None
         self.audio_media: Optional[pj.AudioMedia] = None
+        self._last_audio_diag: float = 0.0
         self.recorder: Optional[pj.AudioMediaRecorder] = None
         self.tone_gen: Optional[pj.ToneGenerator] = None
 
@@ -95,6 +96,24 @@ class Call(pj.Call):
         log(self.account.config.index, f'Registering call with id {self.callback_id}')
         self.command_handler.register_call(self.callback_id, self, other_ids)
 
+    def log_audio_diagnostics(self) -> None:
+        # Every few seconds log the conference port levels and the RTP counters of the call,
+        # to see whether audio is really flowing in each direction.
+        now = time.time()
+        if not self.audio_media or now - self._last_audio_diag < 3.0:
+            return
+        self._last_audio_diag = now
+        try:
+            rx_level = self.audio_media.getRxLevel()
+            tx_level = self.audio_media.getTxLevel()
+            stat = self.getStreamStat(0)
+            log(self.account.config.index,
+                f'Audio diag: from_remote_level={rx_level} to_remote_level={tx_level} '
+                f'rtp_rx_pkts={stat.rtcp.rxStat.pkt} rtp_tx_pkts={stat.rtcp.txStat.pkt} '
+                f'rx_loss={stat.rtcp.rxStat.loss} rx_discard={stat.rtcp.rxStat.discard}')
+        except Exception as e:
+            log(self.account.config.index, f'Audio diag unavailable: {e}')
+
     def handle_events(self) -> None:
         if not self.connected and time.time() - self.last_seen > self.ring_timeout:
             self.trigger_webhook({'event': 'ring_timeout'})
@@ -114,6 +133,7 @@ class Call(pj.Call):
             return
         if not self.connected:
             return
+        self.log_audio_diagnostics()
         timeout = self.menu and self.menu['timeout'] or DEFAULT_RING_TIMEOUT
         if time.time() - self.last_seen > timeout:
             log(self.account.config.index, f"Timeout of {timeout} triggered")
