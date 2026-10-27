@@ -90,6 +90,7 @@ class Account(pj.Account):
         self.make_default = make_default
         self.on_reg_state_callback = on_reg_state_callback
         self._last_reg_code: Optional[int] = None
+        self._last_reg_ok: float = 0.0
 
     def init(self) -> None:
         account_config = pj.AccountConfig()
@@ -114,31 +115,46 @@ class Account(pj.Account):
             account_config.natConfig.turnPassword = self.config.options.turn_server.password
         if self.config.options.proxy:
             account_config.sipConfig.proxies.append(self.config.options.proxy)
+            # TIM often leaves the first REGISTER attempts unanswered: retry every minute instead of the 5 minute default
+            account_config.regConfig.retryIntervalSec = 60
             public_address = resolve_media_public_address(self.config.global_options.media_public_address)
             if public_address:
                 log(self.config.index, f'Advertising media public address {public_address}')
                 account_config.mediaConfig.transportConfig.publicAddress = public_address
         return pj.Account.create(self, account_config, self.make_default)
 
-    def refresh_registration(self, timeout: float = 20.0) -> bool:
-        # TIM answers outgoing INVITEs only shortly after a fresh REGISTER: renew the
-        # registration right before dialing and wait for the final response.
+    def refresh_registration(self, timeout: float = 900.0, fresh_seconds: float = 45.0) -> bool:
+        # TIM answers outgoing INVITEs only shortly after a successful REGISTER, and often leaves
+        # REGISTER attempts unanswered for minutes. Dial only when the registration is fresh:
+        # if the last 200 OK is older than fresh_seconds, renew it and wait (up to timeout) for a 200 OK.
+        if time.time() - self._last_reg_ok < fresh_seconds:
+            log(self.config.index, 'Registration is fresh, dialing right away')
+            return True
         self._last_reg_code = None
         try:
             self.setRegistration(True)
         except Exception as e:
             log(self.config.index, f'Could not refresh registration before dialing: {e}')
             return False
-        deadline = time.time() + timeout
-        while time.time() < deadline and self._last_reg_code is None:
+        started = time.time()
+        deadline = started + timeout
+        while time.time() < deadline:
             self.end_point.libHandleEvents(50)
-        ok = self._last_reg_code == 200
-        log(self.config.index, f'Registration refresh before dialing: {self._last_reg_code} (ok={ok})')
-        return ok
+            if self._last_reg_code == 200:
+                log(self.config.index, f'Registration refresh before dialing: 200 OK after {time.time() - started:.0f}s')
+                return True
+            if self._last_reg_code is not None:
+                # final non-200 response (e.g. 408): pjsua retries by itself, keep waiting
+                self._last_reg_code = None
+        log(self.config.index, f'Registration refresh before dialing: no 200 OK within {timeout:.0f}s')
+        return False
 
     def onRegState(self, prm) -> None:
         log(self.config.index, f'OnRegState: {prm.code} {prm.reason}')
-        self._last_reg_code = prm.code if prm.code >= 200 else self._last_reg_code
+        if prm.code >= 200:
+            self._last_reg_code = prm.code
+        if prm.code == 200:
+            self._last_reg_ok = time.time()
         if self.on_reg_state_callback:
             self.on_reg_state_callback(self.config.index, prm.code, prm.reason)
 
