@@ -134,8 +134,8 @@ class Account(pj.Account):
         try:
             self.setRegistration(True)
         except Exception as e:
-            log(self.config.index, f'Could not refresh registration before dialing: {e}')
-            return False
+            # usually a REGISTER is already in progress (e.g. right after start): keep waiting for its result
+            log(self.config.index, f'Could not send a new REGISTER before dialing ({e!r}), waiting for the pending one')
         started = time.time()
         deadline = started + timeout
         while time.time() < deadline:
